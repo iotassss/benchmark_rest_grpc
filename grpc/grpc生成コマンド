@@ -1,0 +1,3 @@
+cd /Users/iota/Workspace/tmp/test_rest_grpc/grpc
+
+protoc --go_out=. --go-grpc_out=. echo.proto

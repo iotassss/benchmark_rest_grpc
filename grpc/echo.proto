@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package benchmark;
+
+option go_package = "example.com/benchmark/benchmarkpb";
+
+service EchoService {
+  rpc Echo (EchoRequest) returns (EchoResponse) {}
+}
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoResponse {
+  string message = 1;
+}
