@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package benchmark;
 
-option go_package = "example.com/benchmark/benchmarkpb";
+option go_package = "./benchmarkpb";
 
 service EchoService {
   rpc Echo (EchoRequest) returns (EchoResponse) {}

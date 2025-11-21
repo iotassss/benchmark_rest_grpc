@@ -5,11 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"example.com/benchmark/internal/percentile"
 
 	pb "example.com/benchmark/benchmarkpb"
 	"google.golang.org/grpc"
@@ -110,9 +111,9 @@ func main() {
 	totalRequests := len(valid)
 	qps := float64(totalRequests) / elapsed.Seconds()
 
-	p50 := percentile(valid, 0.50)
-	p95 := percentile(valid, 0.95)
-	p99 := percentile(valid, 0.99)
+	p50 := percentile.Percentile(valid, 0.50)
+	p95 := percentile.Percentile(valid, 0.95)
+	p99 := percentile.Percentile(valid, 0.99)
 
 	fmt.Printf("Total requests (success): %d\n", totalRequests)
 	fmt.Printf("Errors: %d\n", errors)
@@ -129,24 +130,4 @@ func doEcho(client pb.EchoServiceClient, timeout time.Duration) error {
 
 	_, err := client.Echo(ctx, &pb.EchoRequest{Message: "hello"})
 	return err
-}
-
-func percentile(durs []time.Duration, p float64) time.Duration {
-	if len(durs) == 0 {
-		return 0
-	}
-	if p <= 0 {
-		return durs[0]
-	}
-	if p >= 1 {
-		return durs[len(durs)-1]
-	}
-	idx := int(math.Ceil(float64(len(durs)) * p))
-	if idx <= 0 {
-		idx = 1
-	}
-	if idx > len(durs) {
-		idx = len(durs)
-	}
-	return durs[idx-1]
 }
