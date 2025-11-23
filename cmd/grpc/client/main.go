@@ -3,14 +3,10 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
-	"sort"
-	"sync"
-	"sync/atomic"
 	"time"
 
-	"example.com/benchmark/internal/percentile"
+	"example.com/benchmark/internal/benchmark"
 
 	pb "example.com/benchmark/benchmarkpb"
 	"google.golang.org/grpc"
@@ -53,75 +49,16 @@ func main() {
 
 	client := pb.NewEchoServiceClient(conn)
 
-	// --- ウォームアップ（計測対象外） ---
-	log.Printf("Warmup: %d requests...\n", warmup)
-	for i := 0; i < warmup; i++ {
-		if err := doEcho(client, time.Duration(timeoutMs)*time.Millisecond); err != nil {
-			log.Printf("warmup error: %v\n", err)
-		}
+	doRequest := func() error {
+		return doEcho(client, time.Duration(timeoutMs)*time.Millisecond)
 	}
 
-	durations := make([]time.Duration, total)
-	var idx int64
-	var errors int64
-
-	log.Printf("Benchmark: %d requests, %d concurrency\n", total, concurrency)
-
-	start := time.Now()
-
-	var wg sync.WaitGroup
-	requestsPerWorker := total / concurrency
-	extra := total % concurrency
-
-	for w := 0; w < concurrency; w++ {
-		wg.Add(1)
-
-		nReq := requestsPerWorker
-		if w < extra {
-			nReq++
-		}
-
-		go func(num int) {
-			defer wg.Done()
-			for i := 0; i < num; i++ {
-				s := time.Now()
-				if err := doEcho(client, time.Duration(timeoutMs)*time.Millisecond); err != nil {
-					atomic.AddInt64(&errors, 1)
-					continue
-				}
-				d := time.Since(s)
-
-				pos := atomic.AddInt64(&idx, 1) - 1
-				if int(pos) < len(durations) {
-					durations[pos] = d
-				}
-			}
-		}(nReq)
-	}
-
-	wg.Wait()
-	elapsed := time.Since(start)
-
-	valid := durations[:idx]
-	if len(valid) == 0 {
-		log.Fatal("no successful requests")
-	}
-	sort.Slice(valid, func(i, j int) bool { return valid[i] < valid[j] })
-
-	totalRequests := len(valid)
-	qps := float64(totalRequests) / elapsed.Seconds()
-
-	p50 := percentile.Percentile(valid, 0.50)
-	p95 := percentile.Percentile(valid, 0.95)
-	p99 := percentile.Percentile(valid, 0.99)
-
-	fmt.Printf("Total requests (success): %d\n", totalRequests)
-	fmt.Printf("Errors: %d\n", errors)
-	fmt.Printf("Total time: %v\n", elapsed)
-	fmt.Printf("QPS: %.2f\n", qps)
-	fmt.Printf("Latency p50: %v\n", p50)
-	fmt.Printf("Latency p95: %v\n", p95)
-	fmt.Printf("Latency p99: %v\n", p99)
+	benchmark.ExecBenchmark(
+		doRequest,
+		total,
+		concurrency,
+		warmup,
+	)
 }
 
 func doEcho(client pb.EchoServiceClient, timeout time.Duration) error {
