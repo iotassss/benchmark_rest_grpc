@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sort"
-	"sync"
-	"sync/atomic"
 	"time"
+
+	"example.com/benchmark/internal/benchmark"
 )
 
 type EchoRequest struct {
@@ -50,81 +49,19 @@ func main() {
 			MaxIdleConnsPerHost: concurrency * 2,
 		},
 	}
-
-	// --- ウォームアップ（計測対象外） ---
-	log.Printf("Warmup: %d requests...\n", warmup)
-	for i := 0; i < warmup; i++ {
-		if err := doRequest(client, targetURL); err != nil {
-			log.Printf("warmup error: %v\n", err)
-		}
+	doRequest := func() error {
+		return doHTTPRequest(client, targetURL)
 	}
 
-	durations := make([]time.Duration, total)
-	var idx int64
-	var errors int64
-
-	log.Printf("Benchmark: %d requests, %d concurrency\n", total, concurrency)
-
-	start := time.Now()
-
-	var wg sync.WaitGroup
-	requestsPerWorker := total / concurrency
-	extra := total % concurrency
-
-	for w := 0; w < concurrency; w++ {
-		wg.Add(1)
-
-		// 端数を前の worker に配る
-		nReq := requestsPerWorker
-		if w < extra {
-			nReq++
-		}
-
-		go func(num int) {
-			defer wg.Done()
-			for i := 0; i < num; i++ {
-				s := time.Now()
-				if err := doRequest(client, targetURL); err != nil {
-					atomic.AddInt64(&errors, 1)
-					continue
-				}
-				d := time.Since(s)
-
-				pos := atomic.AddInt64(&idx, 1) - 1
-				if int(pos) < len(durations) {
-					durations[pos] = d
-				}
-			}
-		}(nReq)
-	}
-
-	wg.Wait()
-	elapsed := time.Since(start)
-
-	// エラーがあった場合、0値を除いた範囲だけを見る
-	valid := durations[:idx]
-	sort.Slice(valid, func(i, j int) bool { return valid[i] < valid[j] })
-
-	totalRequests := len(valid)
-	if totalRequests == 0 {
-		log.Fatal("no successful requests")
-	}
-
-	qps := float64(totalRequests) / elapsed.Seconds()
-	p50 := valid[int(float64(totalRequests)*0.50)-1]
-	p95 := valid[int(float64(totalRequests)*0.95)-1]
-	p99 := valid[int(float64(totalRequests)*0.99)-1]
-
-	fmt.Printf("Total requests (success): %d\n", totalRequests)
-	fmt.Printf("Errors: %d\n", errors)
-	fmt.Printf("Total time: %v\n", elapsed)
-	fmt.Printf("QPS: %.2f\n", qps)
-	fmt.Printf("Latency p50: %v\n", p50)
-	fmt.Printf("Latency p95: %v\n", p95)
-	fmt.Printf("Latency p99: %v\n", p99)
+	benchmark.ExecBenchmark(
+		doRequest,
+		total,
+		concurrency,
+		warmup,
+	)
 }
 
-func doRequest(client *http.Client, url string) error {
+func doHTTPRequest(client *http.Client, url string) error {
 	reqBody, _ := json.Marshal(EchoRequest{Message: "hello"})
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
