@@ -7,11 +7,12 @@
 package benchmarkpb
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -120,7 +121,7 @@ const file_echo_proto_rawDesc = "" +
 	"\fEchoResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage2H\n" +
 	"\vEchoService\x129\n" +
-	"\x04Echo\x12\x16.benchmark.EchoRequest\x1a\x17.benchmark.EchoResponse\"\x00B#Z!example.com/benchmark/benchmarkpbb\x06proto3"
+	"\x04Echo\x12\x16.benchmark.EchoRequest\x1a\x17.benchmark.EchoResponse\"\x00B\x0fZ\r./benchmarkpbb\x06proto3"
 
 var (
 	file_echo_proto_rawDescOnce sync.Once
